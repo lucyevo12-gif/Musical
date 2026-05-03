@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: musical
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: MUSICAL_CALENDAR_MODE
+        value: empty
