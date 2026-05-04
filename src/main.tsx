@@ -81,9 +81,17 @@ function App() {
     if (!audio) return;
 
     if (audio.paused) {
-      await ensureAudioAnalyser(audio);
-      await audio.play();
-      setIsPlaying(true);
+      try {
+        if (audio.readyState === HTMLMediaElement.HAVE_NOTHING) {
+          audio.load();
+        }
+        const playPromise = audio.play();
+        setIsPlaying(true);
+        await ensureAudioAnalyser(audio);
+        await playPromise;
+      } catch {
+        setIsPlaying(false);
+      }
     } else {
       audio.pause();
       setIsPlaying(false);
@@ -186,6 +194,17 @@ function App() {
   }, [calendarAuthorized, calendarEvents, calendarStatus]);
 
   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.pause();
+    audio.load();
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [recommendation.audioUrl]);
+
+  useEffect(() => {
     if (!isPlaying || !analyserRef.current) {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
@@ -254,7 +273,7 @@ function App() {
             <audio
               ref={audioRef}
               src={recommendation.audioUrl}
-              preload="metadata"
+              preload="auto"
               onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
               onCanPlay={(event) => {
                 event.currentTarget.volume = 1;
@@ -263,6 +282,7 @@ function App() {
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onEnded={() => setIsPlaying(false)}
+              onError={() => setIsPlaying(false)}
             />
             <div className="panel-handle" />
             {calendarStatus === 'loading' ? <p className="calendar-state">正在读取今天的飞书日程...</p> : null}

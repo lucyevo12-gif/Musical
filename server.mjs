@@ -12,6 +12,8 @@ const PORT = Number(process.env.PORT || process.env.MUSICAL_API_PORT || 8787);
 const ROOT_DIR = fileURLToPath(new URL('.', import.meta.url));
 const DIST_DIR = join(ROOT_DIR, 'dist');
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+const DEMO_AUDIUS_TRACK_ID = process.env.MUSICAL_DEMO_TRACK_ID || 'w2vOK';
+const USE_DEMO_TRACK = process.env.MUSICAL_DEMO_TRACK !== 'off';
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -21,7 +23,6 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.wav': 'audio/wav',
 };
-
 function shanghaiDate() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
@@ -127,6 +128,28 @@ function formatTrack(track, events) {
     displayMode: 'poem',
     lyrics: [],
     poem: poemForTrack(track, events),
+  };
+}
+
+function audiusDemoRecommendation(events) {
+  return {
+    song: 'Morning Dreams',
+    artist: 'Mondo Loops',
+    audioUrl: `/api/music/stream?id=${encodeURIComponent(DEMO_AUDIUS_TRACK_ID)}`,
+    source: 'Audius',
+    headline: eventWeight(events) >= 7 ? '飞书渐静，给耳朵一阵晚风。' : '飞书留白，旋律慢慢靠近。',
+    reason: eventWeight(events) >= 7
+      ? '会议密了些，所以选一首柔和的人声 chill。'
+      : '今天留有空隙，适合一首柔和的人声 chill。',
+    tags: ['Audius', 'Vocal', 'Chill'],
+    displayMode: 'poem',
+    lyrics: [],
+    poem: [
+      'Feishu lowers the room a little,',
+      'a voice comes in like window light.',
+      'Nothing needs to hurry,',
+      'the evening finds a softer tempo.',
+    ],
   };
 }
 
@@ -300,6 +323,17 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readRequestJson(req);
       const events = Array.isArray(body.events) ? body.events : [];
+      if (USE_DEMO_TRACK) {
+        const recommendation = audiusDemoRecommendation(events);
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          ok: true,
+          recommendation,
+          tracks: [{ song: recommendation.song, artist: recommendation.artist, source: recommendation.source, tags: recommendation.tags }],
+        }));
+        return;
+      }
+
       const tracks = await searchAudius(events);
       if (!tracks.length) {
         throw new Error('No playable Audius tracks found');
